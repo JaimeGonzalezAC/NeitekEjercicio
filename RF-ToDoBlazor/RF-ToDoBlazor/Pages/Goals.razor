@@ -14,7 +14,7 @@
                 </div>
                 @foreach (var goal in goalWithTaks ?? Enumerable.Empty<RF_ToDoBlazor.Services.GoalWithTaks>())
                 {
-                    <div class="card-body" @onclick="() => getTaskByGoal(goal.GoalId)">
+                    <div class="card-body" @onclick="() => getTaskByGoal(goal.GoalId, goal.TaskCount)">
                         <div class="list-group">
                             <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(goal.GoalId == guidGoal ? "bg-primary text-white" : "")">
                                 <span>@goal.Name</span>
@@ -79,7 +79,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var task in FilteredTasks ?? Enumerable.Empty<RF_ToDoBlazor.Services.Task>())
+                            @foreach (var task in PagedTasks ?? Enumerable.Empty<RF_ToDoBlazor.Services.Task>())
                             {
                                 <tr @onclick="() => getTaskGuid(task.TaskId, task.Name)" class="@(task.TaskId == guidTask ? "table-active" : "")">
                                     <td title="De doble Click para marcar la importancia de la tarea" @onclick="MarkAsImportant">
@@ -87,7 +87,6 @@
                                             <span class="oi oi-star @(task.isImportant ? "text-warning" : "text-secondary")" aria-hidden="true"></span>
                                         </div>
                                     </td>
-
                                     <td>@task.Name</td>
                                     <td>@task.CreatedDate.ToString("dd/MM/yyyy")</td>
                                     <td>@task.Status</td>
@@ -96,10 +95,11 @@
                         </tbody>
                     </table>
                     <nav>
-                        <ul class="pagination">
-                            <li class="page-item"><a class="page-link" href="#">1</a></li>
-                            <li class="page-item"><a class="page-link" href="#">2</a></li>
-                        </ul>
+                        
+                        <Pagination ActivePageNumber="@currentPageNumber"
+                                    TotalPages="taskCount"
+                            PageChanged="OnPageChangedAsync" />
+
                     </nav>
                 </div>
             </div>
@@ -185,8 +185,6 @@
 
 
 @code {
-    private IEnumerable<RF_ToDoBlazor.Services.Task> tasks = new List<RF_ToDoBlazor.Services.Task>();
-    private IEnumerable<RF_ToDoBlazor.Services.GoalWithTaks> goalWithTaks = new List<RF_ToDoBlazor.Services.GoalWithTaks>();
     private bool modalAddGoalVisible = false;
     private bool modalAddTaskVisible = false;
     private bool modalDeleteGoalVisible = false;
@@ -198,7 +196,18 @@
     private string filterName = "";
     private string filterStatus = "";
     private DateTime? filterDate = null;
-
+    int itemsPerPage = 5;
+    int currentPageNumber = 1;
+    int taskCount = 0;
+    private IEnumerable<RF_ToDoBlazor.Services.Task> tasks = new List<RF_ToDoBlazor.Services.Task>();
+    private IEnumerable<RF_ToDoBlazor.Services.GoalWithTaks> goalWithTaks = new List<RF_ToDoBlazor.Services.GoalWithTaks>();
+    private IEnumerable<RF_ToDoBlazor.Services.Task> FilteredTasks => tasks
+        .Where(task => string.IsNullOrEmpty(filterName) || task.Name.Contains(filterName, StringComparison.OrdinalIgnoreCase))
+        .Where(task => string.IsNullOrEmpty(filterStatus) || task.Status.Equals(filterStatus, StringComparison.OrdinalIgnoreCase))
+        .Where(task => filterDate == null || task.CreatedDate.Date == filterDate.Value.Date);
+    private IEnumerable<RF_ToDoBlazor.Services.Task> PagedTasks => FilteredTasks
+        .Skip((currentPageNumber - 1) * itemsPerPage)
+        .Take(itemsPerPage);
 
     protected override async Task OnInitializedAsync()
     {
@@ -220,8 +229,9 @@
         guidTask = guid;
         inputTaskValue = actualName;
     }
-    private async Task getTaskByGoal(Guid _guidGoal)
+    private async Task getTaskByGoal(Guid _guidGoal, int _taskCount)
     {
+        taskCount = (int)Math.Ceiling((double)_taskCount / itemsPerPage);
         await LoadTasks(_guidGoal);
     }
     private void OpenConfirmDeleteTaskModal()
@@ -387,14 +397,14 @@
             }
         }
     }
-    private IEnumerable<RF_ToDoBlazor.Services.Task> FilteredTasks => tasks
-        .Where(task => string.IsNullOrEmpty(filterName) || task.Name.Contains(filterName, StringComparison.OrdinalIgnoreCase))
-        .Where(task => string.IsNullOrEmpty(filterStatus) || task.Status.Equals(filterStatus, StringComparison.OrdinalIgnoreCase))
-        .Where(task => filterDate == null || task.CreatedDate.Date == filterDate.Value.Date);
     private void ClearFilters()
     {
         filterName = "";
         filterStatus = "";
         filterDate = null;
+    }
+    private async Task OnPageChangedAsync(int newPageNumber)
+    {
+        await Task.Run(() => { currentPageNumber = newPageNumber; });
     }
 }
