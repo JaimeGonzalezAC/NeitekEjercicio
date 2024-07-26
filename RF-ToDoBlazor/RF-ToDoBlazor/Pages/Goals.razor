@@ -1,0 +1,264 @@
+﻿@page "/goals"
+@inject RF_ToDoBlazor.Services.TodoApiService TodoApiService
+<div class="alert alert-secondary mt-4">
+    <span class="text-nowrap">
+        Control de Metas
+    </span>
+</div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <button class="btn btn-primary mb-3" @onclick="OpenModalNewGoal" type="button"><span class="oi oi-plus me-2" aria-hidden="true"></span>Nueva meta</button>
+                </div>
+                @foreach (var goal in goalWithTaks ?? Enumerable.Empty<RF_ToDoBlazor.Services.GoalWithTaks>())
+                {
+                    <div class="card-body" @onclick="() => getTaskByGoal(goal.GoalId)">
+                        <div class="list-group">
+                            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                <span>@goal.Name</span>
+                                <div>
+                                    <span @onclick="() => OpenModalEditGoal(goal.Name, goal.GoalId)" class="oi oi-pencil me-2" aria-hidden="true"></span>
+                                    <span @onclick="() => OpenConfirmDeleteGoalModal(goal.GoalId)" class="oi oi-trash me-2" aria-hidden="true"></span>
+                                </div>
+                            </a>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <small>Fecha creada: @goal.CreatedDate.ToString("dd/MM/yyyy")</small>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <small>Tareas completadas: @goal.CompletedTaskCount/@goal.TaskCount @goal.CompletionPercentage%</small>
+                            </div>
+                            <div class="progress mt-2">
+                                <div class="progress-bar" role="progressbar"
+                                     style="width: @goal.CompletionPercentage%;"
+                                     aria-valuenow="@goal.CompletionPercentage"
+                                     aria-valuemin="0" aria-valuemax="100">
+                                    @goal.CompletionPercentage%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    Configurar plan de compensación
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-success mb-3"><span class="oi oi-plus me-2" aria-hidden="true"></span>Agregar tareas</button>
+                    <button class="btn btn-success mb-3"><span class="oi oi-circle-check me-2" aria-hidden="true"></span>Completar tarea tareas</button>
+                    <button class="btn btn-success mb-3"><span class="oi oi-pencil me-2" aria-hidden="true"></span>Editar</button>
+                    <button class="btn btn-success mb-3"><span class="oi oi-trash me-2" aria-hidden="true"></span>Eliminar</button>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Tarea</th>
+                                <th>Fecha</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var task in tasks ?? Enumerable.Empty<RF_ToDoBlazor.Services.Task>())
+                            {
+                                <tr>
+                                    <td>@task.Name</td>
+                                    <td>@task.CreatedDate.ToString("dd/MM/yyyy")</td>
+                                    <td>@task.Status</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <nav>
+                        <ul class="pagination">
+                            <li class="page-item"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade @(modalAddGoalVisible ? "show" : "")" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="@(modalAddGoalVisible ? "false" : "true")" style="display: @(modalAddGoalVisible ? "block" : "none");">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">@(guidGoal != Guid.Empty ? "Editar meta" : "Agregar nueva meta")</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModalGoal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    Nombre: &emsp; <input maxlength="80" type="text" class="form-control" @bind="inputValue" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModalGoal">Cerrar</button>
+                <button type="button" class="btn btn-primary" @onclick="() => SubmitGoal()">@(guidGoal != Guid.Empty ? "Actualizar" : "Guardar")</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade @(modalDeleteVisible ? "show" : "")" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="@(modalDeleteVisible ? "false" : "true")" style="display: @(modalDeleteVisible ? "block" : "none");">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmationModalLabel">¿ESTÁS SEGURO?</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModalGoal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Deseas eliminar el elemento?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModalGoal">Cancelar</button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmGoalDeletion">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+@code {
+    private IEnumerable<RF_ToDoBlazor.Services.Task> tasks = new List<RF_ToDoBlazor.Services.Task>();
+    private IEnumerable<RF_ToDoBlazor.Services.GoalWithTaks> goalWithTaks = new List<RF_ToDoBlazor.Services.GoalWithTaks>();
+    private bool modalAddGoalVisible = false;
+    private bool modalDeleteVisible = false;
+    private string inputValue = "";
+    private Guid guidGoal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGoals();
+    }
+
+    private async Task LoadGoals()
+    {
+        goalWithTaks = await TodoApiService.GetGoalsWithTaskAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadTasks(Guid _guidGoal)
+    {
+        tasks = await TodoApiService.GetTasksByGoalAsync(_guidGoal);
+        StateHasChanged();
+    }
+
+    private async Task getTaskByGoal(Guid _guidGoal)
+    {
+        await LoadTasks(_guidGoal);
+    }
+    //TODO
+    private void OpenConfirmDeleteTaskModal(Guid itemId)
+    {
+
+    }
+
+    private void OpenConfirmDeleteGoalModal(Guid itemId)
+    {
+        guidGoal = itemId;
+        modalDeleteVisible = true;
+    }
+
+    //TODO
+    private void OpenModalNewTask()
+    {
+
+    }
+    private void OpenModalNewGoal()
+    {
+        modalAddGoalVisible = true;
+        inputValue = string.Empty; 
+        guidGoal = Guid.Empty; 
+    }
+
+    //TODO
+    private void OpenModalEditTask(string actualName, Guid _guidTask)
+    {
+
+    }
+    private void OpenModalEditGoal(string actualName, Guid _guidGoal)
+    {
+        modalAddGoalVisible = true;
+        inputValue = actualName;
+        guidGoal = _guidGoal;
+    }
+
+    //TODO
+    private void CloseModalTask()
+    {
+
+    }
+    private void CloseModalGoal()
+    {
+        modalAddGoalVisible = false;
+        modalDeleteVisible = false;
+    }
+    //TODO
+    private async Task SubmitTask()
+    {
+
+    }
+
+    private async Task SubmitGoal()
+    {
+        await SaveGoal();
+    }
+
+    //TODO
+    private async Task ConfirmTaskDeletion()
+    {
+
+    }
+    private async Task ConfirmGoalDeletion()
+    {
+        await TodoApiService.DeleteGoalAsync(guidGoal);
+        await LoadGoals();
+        CloseModalGoal();
+    }
+
+    //TODO
+    private async Task SaveTask()
+    {
+        
+    }
+    private async Task SaveGoal()
+    {
+        if (!string.IsNullOrWhiteSpace(inputValue))
+        {
+            try
+            {
+                if (guidGoal != Guid.Empty)
+                {
+                    var updatedGoal = new RF_ToDoBlazor.Services.Goal
+                        {
+                            GoalId = guidGoal,
+                            Name = inputValue
+                        };
+
+                    await TodoApiService.UpdateGoalAsync(guidGoal, updatedGoal);
+                }
+                else
+                {
+                    var newGoal = new RF_ToDoBlazor.Services.Goal
+                        {
+                            Name = inputValue,
+                            CreatedDate = DateTime.Now
+                        };
+
+                    await TodoApiService.CreateGoalAsync(newGoal);
+                }
+
+                inputValue = string.Empty;
+                guidGoal = Guid.Empty;
+                await LoadGoals(); 
+                CloseModalGoal();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al guardar la meta: {ex.Message}");
+            }
+        }
+    }
+}
