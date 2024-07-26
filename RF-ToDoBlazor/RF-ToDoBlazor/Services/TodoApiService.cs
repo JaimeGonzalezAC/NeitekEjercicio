@@ -22,7 +22,6 @@ namespace RF_ToDoBlazor.Services
         {
             return await _httpClient.GetFromJsonAsync<IEnumerable<Task>>("Tasks");
         }
-
         public async Task<Task> GetTaskAsync(Guid id)
         {
             return await _httpClient.GetFromJsonAsync<Task>($"Tasks/{id}");
@@ -33,14 +32,21 @@ namespace RF_ToDoBlazor.Services
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<Task>();
         }
-
         public async System.Threading.Tasks.Task UpdateTaskAsync(Guid id, Task task)
         {
             var response = await _httpClient.PutAsJsonAsync($"Tasks/{id}", task);
             response.EnsureSuccessStatusCode();
         }
-
-        // Delete (DELETE)
+        public async System.Threading.Tasks.Task CompleteTask(Guid id)
+        {
+            var response = await _httpClient.PutAsync($"Tasks/{id}/Completed", null);
+            response.EnsureSuccessStatusCode();
+        }
+        public async System.Threading.Tasks.Task MarkTaskAsImportant(Guid id)
+        {
+            var response = await _httpClient.PutAsync($"Tasks/{id}/isImpornat", null);
+            response.EnsureSuccessStatusCode();
+        }
         public async System.Threading.Tasks.Task DeleteTaskAsync(Guid id)
         {
             var response = await _httpClient.DeleteAsync($"Tasks/{id}");
@@ -97,6 +103,7 @@ namespace RF_ToDoBlazor.Services
         public Guid TaskId { get; set; }
         public Guid GoalId { get; set; }
         public string Name { get; set; }
+        public bool isImportant { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string Status { get; set; }
     }

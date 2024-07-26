@@ -7,10 +7,29 @@ namespace RFTodoAPI.Models
     {
         [Key]
         public Guid TaskId { get; set; }
+
+        [ForeignKey("Goals")]
+        public Guid GoalId { get; set; }  
+        public Goals? Goal { get; set; }  
+
+        [Required]
+        [MaxLength(80)]
+        public string Name { get; set; }
+
+        [Required]
+        public DateTime CreatedDate { get; set; } = DateTime.Now;
+
+        public string Status { get; set; } = "Abierta";
+        public bool isImportant { get; set; } = false;
+    }
+
+    public class TaskDTO
+    {
+        [Key]
+        public Guid TaskId { get; set; }
         [Required]
         [ForeignKey("Goals")]
         public Guid GoalId { get; set; }
-        public Goals Goal { get; set; }
         [Required]
         [MaxLength(80)]
         public string Name { get; set; }

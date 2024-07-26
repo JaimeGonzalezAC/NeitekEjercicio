@@ -16,7 +16,7 @@
                 {
                     <div class="card-body" @onclick="() => getTaskByGoal(goal.GoalId)">
                         <div class="list-group">
-                            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(goal.GoalId == guidGoal ? "bg-primary text-white" : "")">
                                 <span>@goal.Name</span>
                                 <div>
                                     <span @onclick="() => OpenModalEditGoal(goal.Name, goal.GoalId)" class="oi oi-pencil me-2" aria-hidden="true"></span>
@@ -27,14 +27,16 @@
                                 <small>Fecha creada: @goal.CreatedDate.ToString("dd/MM/yyyy")</small>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mt-2">
-                                <small>Tareas completadas: @goal.CompletedTaskCount/@goal.TaskCount @goal.CompletionPercentage%</small>
+                                <div class="d-flex justify-content-between w-100">
+                                    <small class="me-2">Tareas completadas: @goal.CompletedTaskCount/@goal.TaskCount</small>
+                                    <small>@goal.CompletionPercentage.ToString("F0")%</small>
+                                </div>
                             </div>
                             <div class="progress mt-2">
                                 <div class="progress-bar" role="progressbar"
-                                     style="width: @goal.CompletionPercentage%;"
+                                     style="width: @Math.Round(goal.CompletionPercentage, 0)%;"
                                      aria-valuenow="@goal.CompletionPercentage"
                                      aria-valuemin="0" aria-valuemax="100">
-                                    @goal.CompletionPercentage%
                                 </div>
                             </div>
                         </div>
@@ -42,28 +44,50 @@
                 }
             </div>
         </div>
+
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
                     Configurar plan de compensación
                 </div>
                 <div class="card-body">
-                    <button class="btn btn-success mb-3"><span class="oi oi-plus me-2" aria-hidden="true"></span>Agregar tareas</button>
-                    <button class="btn btn-success mb-3"><span class="oi oi-circle-check me-2" aria-hidden="true"></span>Completar tarea tareas</button>
-                    <button class="btn btn-success mb-3"><span class="oi oi-pencil me-2" aria-hidden="true"></span>Editar</button>
-                    <button class="btn btn-success mb-3"><span class="oi oi-trash me-2" aria-hidden="true"></span>Eliminar</button>
+                    <button class="btn btn-success mb-3" @onclick="OpenModalNewTask"><span class="oi oi-plus me-2" aria-hidden="true"></span>Agregar tareas</button>
+                    <button class="btn btn-success mb-3" @onclick="CompleteTask"><span class="oi oi-circle-check me-2" aria-hidden="true"></span>Completar tarea tareas</button>
+                    <button class="btn btn-success mb-3" @onclick="OpenModalEditTask"><span class="oi oi-pencil me-2" aria-hidden="true"></span>Editar</button>
+                    <button class="btn btn-success mb-3" @onclick="OpenConfirmDeleteTaskModal"><span class="oi oi-trash me-2" aria-hidden="true"></span>Eliminar</button>
                     <table class="table table-bordered">
                         <thead>
                             <tr>
-                                <th>Tarea</th>
-                                <th>Fecha</th>
-                                <th>Estado</th>
+                                <th>
+                                    <button class="btn btn-outline-dark" @onclick="ClearFilters">Limpiar</button></th>
+                                <th>
+                                    Tarea
+                                    <input type="text" class="form-control" placeholder="Filtrar por nombre" @bind="filterName" />
+                                </th>
+                                <th>
+                                    Fecha
+                                    <input type="date" class="form-control" @bind="filterDate" />
+                                </th>
+                                <th>
+                                    Estado
+                                    <select class="form-control" @bind="filterStatus">
+                                        <option value="">Todos</option>
+                                        <option value="Abierta">Abierta</option>
+                                        <option value="Completada">Completada</option>
+                                    </select>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var task in tasks ?? Enumerable.Empty<RF_ToDoBlazor.Services.Task>())
+                            @foreach (var task in FilteredTasks ?? Enumerable.Empty<RF_ToDoBlazor.Services.Task>())
                             {
-                                <tr>
+                                <tr @onclick="() => getTaskGuid(task.TaskId, task.Name)" class="@(task.TaskId == guidTask ? "table-active" : "")">
+                                    <td title="De doble Click para marcar la importancia de la tarea" @onclick="MarkAsImportant">
+                                        <div class="d-flex justify-content-center">
+                                            <span class="oi oi-star @(task.isImportant ? "text-warning" : "text-secondary")" aria-hidden="true"></span>
+                                        </div>
+                                    </td>
+
                                     <td>@task.Name</td>
                                     <td>@task.CreatedDate.ToString("dd/MM/yyyy")</td>
                                     <td>@task.Status</td>
@@ -82,7 +106,7 @@
         </div>
     </div>
 </div>
-
+@* Modal de metas *@
 <div class="modal fade @(modalAddGoalVisible ? "show" : "")" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="@(modalAddGoalVisible ? "false" : "true")" style="display: @(modalAddGoalVisible ? "block" : "none");">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -92,7 +116,7 @@
             </div>
             <div class="modal-body">
                 <div class="input-group">
-                    Nombre: &emsp; <input maxlength="80" type="text" class="form-control" @bind="inputValue" />
+                    Nombre: &emsp; <input maxlength="80" type="text" class="form-control" @bind="inputGoalValue" />
                 </div>
             </div>
             <div class="modal-footer">
@@ -102,8 +126,28 @@
         </div>
     </div>
 </div>
-
-<div class="modal fade @(modalDeleteVisible ? "show" : "")" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="@(modalDeleteVisible ? "false" : "true")" style="display: @(modalDeleteVisible ? "block" : "none");">
+@* Modal de tareas *@
+<div class="modal fade @(modalAddTaskVisible ? "show" : "")" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="@(modalAddTaskVisible ? "false" : "true")" style="display: @(modalAddTaskVisible ? "block" : "none");">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">@(guidGoal != Guid.Empty ? "Editar tarea" : "Agregar nueva tarea")</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModalTask"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    Nombre: &emsp; <input maxlength="80" type="text" class="form-control" @bind="inputTaskValue" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModalTask">Cerrar</button>
+                <button type="button" class="btn btn-primary" @onclick="() => SubmitTask()">@(guidTask != Guid.Empty ? "Actualizar" : "Guardar")</button>
+            </div>
+        </div>
+    </div>
+</div>
+@* Modal de eliminación de metas *@
+<div class="modal fade @(modalDeleteGoalVisible ? "show" : "")" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="@(modalDeleteGoalVisible ? "false" : "true")" style="display: @(modalDeleteGoalVisible ? "block" : "none");">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -111,7 +155,7 @@
                 <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModalGoal"></button>
             </div>
             <div class="modal-body">
-                <p>¿Deseas eliminar el elemento?</p>
+                <p>¿Deseas eliminar el elemento @inputGoalValue?</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="CloseModalGoal">Cancelar</button>
@@ -120,96 +164,141 @@
         </div>
     </div>
 </div>
+@* Modal de eliminación de tareas *@
+<div class="modal fade @(modalDeleteTaskVisible ? "show" : "")" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="@(modalDeleteTaskVisible ? "false" : "true")" style="display: @(modalDeleteTaskVisible ? "block" : "none");">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmationModalLabel">¿ESTÁS SEGURO?</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModalTask"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Deseas eliminar el elemento @inputTaskValue?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModalTask">Cancelar</button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmTaskDeletion">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 @code {
     private IEnumerable<RF_ToDoBlazor.Services.Task> tasks = new List<RF_ToDoBlazor.Services.Task>();
     private IEnumerable<RF_ToDoBlazor.Services.GoalWithTaks> goalWithTaks = new List<RF_ToDoBlazor.Services.GoalWithTaks>();
     private bool modalAddGoalVisible = false;
-    private bool modalDeleteVisible = false;
-    private string inputValue = "";
+    private bool modalAddTaskVisible = false;
+    private bool modalDeleteGoalVisible = false;
+    private bool modalDeleteTaskVisible = false;
+    private string inputGoalValue = "";
+    private string inputTaskValue = "";
     private Guid guidGoal;
+    private Guid guidTask;
+    private string filterName = "";
+    private string filterStatus = "";
+    private DateTime? filterDate = null;
+
 
     protected override async Task OnInitializedAsync()
     {
         await LoadGoals();
     }
-
     private async Task LoadGoals()
     {
         goalWithTaks = await TodoApiService.GetGoalsWithTaskAsync();
         StateHasChanged();
     }
-
     private async Task LoadTasks(Guid _guidGoal)
     {
         tasks = await TodoApiService.GetTasksByGoalAsync(_guidGoal);
+        guidGoal = _guidGoal;
         StateHasChanged();
     }
-
+    private void getTaskGuid(Guid guid, string actualName)
+    {
+        guidTask = guid;
+        inputTaskValue = actualName;
+    }
     private async Task getTaskByGoal(Guid _guidGoal)
     {
         await LoadTasks(_guidGoal);
     }
-    //TODO
-    private void OpenConfirmDeleteTaskModal(Guid itemId)
+    private void OpenConfirmDeleteTaskModal()
     {
-
+        modalDeleteTaskVisible = true;
     }
-
     private void OpenConfirmDeleteGoalModal(Guid itemId)
     {
         guidGoal = itemId;
-        modalDeleteVisible = true;
+        modalDeleteGoalVisible = true;
     }
-
-    //TODO
     private void OpenModalNewTask()
     {
-
+        modalAddTaskVisible = true;
+        inputTaskValue = string.Empty;
+        guidTask = Guid.Empty;
     }
     private void OpenModalNewGoal()
     {
         modalAddGoalVisible = true;
-        inputValue = string.Empty; 
-        guidGoal = Guid.Empty; 
+        inputGoalValue = string.Empty;
+        guidGoal = Guid.Empty;
     }
-
-    //TODO
-    private void OpenModalEditTask(string actualName, Guid _guidTask)
+    private void OpenModalEditTask()
     {
-
+        modalAddTaskVisible = true;
     }
     private void OpenModalEditGoal(string actualName, Guid _guidGoal)
     {
         modalAddGoalVisible = true;
-        inputValue = actualName;
+        inputGoalValue = actualName;
         guidGoal = _guidGoal;
     }
-
-    //TODO
     private void CloseModalTask()
     {
-
+        modalAddTaskVisible = false;
+        modalDeleteTaskVisible = false;
     }
     private void CloseModalGoal()
     {
         modalAddGoalVisible = false;
-        modalDeleteVisible = false;
+        modalDeleteGoalVisible = false;
     }
-    //TODO
     private async Task SubmitTask()
     {
-
+        await SaveTask();
     }
-
     private async Task SubmitGoal()
     {
         await SaveGoal();
     }
-
-    //TODO
+    private async Task CompleteTask()
+    {
+        if (guidTask != Guid.Empty)
+        {
+            await TodoApiService.CompleteTask(guidTask);
+            guidTask = Guid.Empty;
+            await LoadTasks(guidGoal);
+            await LoadGoals();
+        }
+    }
+    private async Task MarkAsImportant()
+    {
+        if (guidTask != Guid.Empty)
+        {
+            await TodoApiService.MarkTaskAsImportant(guidTask);
+            guidTask = Guid.Empty;
+            await LoadTasks(guidGoal);
+            await LoadGoals();
+        }
+    }
     private async Task ConfirmTaskDeletion()
     {
-
+        await TodoApiService.DeleteTaskAsync(guidTask);
+        await LoadGoals();
+        await LoadTasks(guidGoal);
+        CloseModalTask();
     }
     private async Task ConfirmGoalDeletion()
     {
@@ -217,15 +306,52 @@
         await LoadGoals();
         CloseModalGoal();
     }
-
-    //TODO
     private async Task SaveTask()
     {
-        
+        if (!string.IsNullOrWhiteSpace(inputTaskValue))
+        {
+            try
+            {
+                if (guidGoal != Guid.Empty && guidTask != Guid.Empty)
+                {
+                    var updateTask = new RF_ToDoBlazor.Services.Task
+                        {
+                            TaskId = guidTask,
+                            Name = inputTaskValue,
+                            GoalId = guidGoal,
+                            Status = "Abierta"
+                        };
+
+                    await TodoApiService.UpdateTaskAsync(guidTask, updateTask);
+                }
+                else
+                {
+                    var newTask = new RF_ToDoBlazor.Services.Task
+                        {
+                            Name = inputTaskValue,
+                            CreatedDate = DateTime.Now,
+                            GoalId = guidGoal,
+                            Status = "Abierta"
+                        };
+
+                    await TodoApiService.CreateTaskAsync(newTask);
+                }
+
+                inputTaskValue = string.Empty;
+                guidTask = Guid.Empty;
+                await LoadGoals();
+                await LoadTasks(guidGoal);
+                CloseModalTask();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al guardar la tarea: {ex.Message}");
+            }
+        }
     }
     private async Task SaveGoal()
     {
-        if (!string.IsNullOrWhiteSpace(inputValue))
+        if (!string.IsNullOrWhiteSpace(inputGoalValue))
         {
             try
             {
@@ -234,7 +360,7 @@
                     var updatedGoal = new RF_ToDoBlazor.Services.Goal
                         {
                             GoalId = guidGoal,
-                            Name = inputValue
+                            Name = inputGoalValue
                         };
 
                     await TodoApiService.UpdateGoalAsync(guidGoal, updatedGoal);
@@ -243,16 +369,16 @@
                 {
                     var newGoal = new RF_ToDoBlazor.Services.Goal
                         {
-                            Name = inputValue,
+                            Name = inputGoalValue,
                             CreatedDate = DateTime.Now
                         };
 
                     await TodoApiService.CreateGoalAsync(newGoal);
                 }
 
-                inputValue = string.Empty;
+                inputGoalValue = string.Empty;
                 guidGoal = Guid.Empty;
-                await LoadGoals(); 
+                await LoadGoals();
                 CloseModalGoal();
             }
             catch (Exception ex)
@@ -260,5 +386,15 @@
                 Console.WriteLine($"Error al guardar la meta: {ex.Message}");
             }
         }
+    }
+    private IEnumerable<RF_ToDoBlazor.Services.Task> FilteredTasks => tasks
+        .Where(task => string.IsNullOrEmpty(filterName) || task.Name.Contains(filterName, StringComparison.OrdinalIgnoreCase))
+        .Where(task => string.IsNullOrEmpty(filterStatus) || task.Status.Equals(filterStatus, StringComparison.OrdinalIgnoreCase))
+        .Where(task => filterDate == null || task.CreatedDate.Date == filterDate.Value.Date);
+    private void ClearFilters()
+    {
+        filterName = "";
+        filterStatus = "";
+        filterDate = null;
     }
 }

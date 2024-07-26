@@ -32,17 +32,6 @@ namespace RFTodoAPI.Controllers
             return await _context.Tasks.Where(ss=>ss.GoalId == id).ToListAsync();
         }
 
-        // GET: api/Tasks
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Models.Task>>> GetTasks()
-        {
-            if (_context.Tasks == null)
-            {
-                return NotFound();
-            }
-            return await _context.Tasks.ToListAsync();
-        }
-
         // GET: api/Tasks/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Models.Task>> GetTask(Guid id)
@@ -71,6 +60,62 @@ namespace RFTodoAPI.Controllers
                 return BadRequest();
             }
 
+            _context.Entry(task).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!TaskExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        // PUT: api/Tasks/5
+        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        [HttpPut("{id}/Completed")]
+        public async Task<IActionResult> CompleteTask(Guid id)
+        {
+            var task = await _context.Tasks.FindAsync(id);
+            task.Status = "Completada";
+            _context.Entry(task).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!TaskExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        // PUT: api/Tasks/5
+        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        [HttpPut("{id}/isImpornat")]
+        public async Task<IActionResult> MarkTaskAsImportant(Guid id)
+        {
+            var task = await _context.Tasks.FindAsync(id);
+            task.isImportant = !task.isImportant;
             _context.Entry(task).State = EntityState.Modified;
 
             try

@@ -14,6 +14,12 @@ namespace RFTodoAPI.Data
         public DbSet<Models.Task> Tasks { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<Models.Task>()
+            .HasOne(t => t.Goal)
+            .WithMany(g => g.Tasks)
+            .HasForeignKey(t => t.GoalId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
             base.OnModelCreating(modelBuilder);
         }
     }
